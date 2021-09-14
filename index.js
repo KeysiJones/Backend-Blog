@@ -1,7 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const Aula = require("./models/Aula.js");
+const Post = require("./models/Post.js");
 const User = require("./models/User.js");
 const Counter = require("./models/Counter");
 const PORT = process.env.PORT || 3001;
@@ -20,8 +20,7 @@ const corsOptions = require("./config/corsOptions.js");
 
 app.use(cors(corsOptions));
 
-const connectionUrl =
-  process.env.REACT_APP_DATABASE_URL || "mongodb://localhost:27017/node";
+const connectionUrl = process.env.REACT_APP_DATABASE_URL;
 
 mongoose.Promise = global.Promise;
 
@@ -42,15 +41,15 @@ app.get("/", function (req, res) {
   res.status(200).json({ mensagem: "Seja bem vindo meu amigo(a)" });
 });
 
-app.get("/aulas", function (req, res) {
-  Aula.find(function (err, aulas) {
+app.get("/posts", function (req, res) {
+  Post.find(function (err, posts) {
     if (err) {
       return res.status(500).json({
         error: err.message,
       });
     }
 
-    res.status(200).json(aulas);
+    res.status(200).json({ posts: posts });
   });
 });
 
@@ -66,78 +65,80 @@ app.get("/counters", auth, function (req, res) {
   });
 });
 
-app.post("/cadastrar-cursos", function (req, res) {
-  //console.log(req.body);
+app.post("/posts", auth, function (req, res) {
+  const { title, body, subtitle, created } = req.body;
 
-  const { terca, quarta, quinta, sabado } = req.body;
-
-  const aula = new Aula({
-    terca: terca,
-    quarta: quarta,
-    quinta: quinta,
-    sabado: sabado,
+  const post = new Post({
+    title: title,
+    body: body,
+    subtitle: subtitle,
+    created: created,
   });
 
-  aula.save(function (err, aulas) {
+  generateSequence("postId").then((sequenceValue) => {
+    post.id = sequenceValue;
+
+    post.save(function (err, newPost) {
+      if (err) {
+        return res.status(500).json({ erro: err.message });
+      }
+
+      res.status(200).json({ msg: "Post saved !" });
+    });
+  });
+});
+
+app.get("/post/:postId", function (req, res) {
+  const postId = req.params.postId;
+
+  Post.findOne({ id: postId }, function (err, post) {
     if (err) {
       return res.status(500).json({ erro: err.message });
     }
 
-    res.status(200).json(aulas);
+    if (post == null) {
+      return res.status("404").json({ msg: "Post não encontrado !" });
+    }
+
+    return res.status(200).json(post);
   });
 });
 
-// app.get("/post/:postId", function (req, res) {
-//   const postId = req.params.postId;
+app.put("/post/:postId", auth, function (req, res) {
+  const postId = req.params.postId;
 
-//   Post.findOne({ id: postId }, function (err, post) {
-//     if (err) {
-//       return res.status(500).json({ erro: err.message });
-//     }
+  const { title, subtitle, body } = req.body;
 
-//     if (post == null) {
-//       return res.status("404").json({ msg: "Post não encontrado !" });
-//     }
+  Post.findOneAndUpdate(
+    { id: postId },
+    { title, subtitle, body },
+    function (err, post) {
+      if (err) {
+        return res.status(500).json({ erro: err.message });
+      }
 
-//     return res.status(200).json(post);
-//   });
-// });
+      return res.status(200).json({
+        msg: `Título do post com id ${postId} atualizado com sucesso!`,
+      });
+    }
+  );
+});
 
-// app.put("/post/:postId", auth, function (req, res) {
-//   const postId = req.params.postId;
+app.delete("/post/:postId", auth, (req, res) => {
+  const postId = req.params.postId;
 
-//   const { title, subtitle, body } = req.body;
+  Post.deleteOne({ id: postId }, function (err, post) {
+    if (err) {
+      return res.status(500).json({ erro: err.message });
+    }
 
-//   Post.findOneAndUpdate(
-//     { id: postId },
-//     { title, subtitle, body },
-//     function (err, post) {
-//       if (err) {
-//         return res.status(500).json({ erro: err.message });
-//       }
+    if (post == null) {
+      return res.status("404").json({ msg: "Post não encontrado !" });
+    }
 
-//       return res.status(200).json({
-//         msg: `Título do post com id ${postId} atualizado com sucesso!`,
-//       });
-//     }
-//   );
-// });
-
-// app.delete("/post/:postId", auth, (req, res) => {
-//   const postId = req.params.postId;
-
-//   Post.deleteOne({ id: postId }, function (err, post) {
-//     if (err) {
-//       return res.status(500).json({ erro: err.message });
-//     }
-
-//     if (post == null) {
-//       return res.status("404").json({ msg: "Post não encontrado !" });
-//     }
-
-//     return res.status(200).json({ msg: "Post deletado com sucesso" });
-//   });
-// });
+    return res.status(200).json({ msg: "Post deletado com sucesso" });
+  });
+});
 
 // Register
 // ...
